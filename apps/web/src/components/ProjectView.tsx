@@ -970,6 +970,8 @@ interface Props {
     choice: { model?: string; reasoning?: string; serviceTier?: string },
   ) => void;
   onApiModelChange?: (model: string) => void;
+  /** Per-model reasoning effort for BYOK providers that advertise one. */
+  onApiReasoningEffortChange?: (model: string, effort: string) => void;
   onRefreshAgents: () => void;
   onOpenSettings: (section?: SettingsSection) => void;
   onOpenAmrSettings?: () => void;
@@ -2032,11 +2034,14 @@ function byokOpenCodeProviderFromConfig(
   ) {
     return undefined;
   }
+  const reasoningEffort =
+    config.byokReasoningEffortByModel?.[model]?.trim() ?? '';
   return {
     protocol: config.apiProtocol,
     apiKey: config.apiKey.trim(),
     baseUrl: config.baseUrl.trim(),
     model,
+    ...(reasoningEffort ? { reasoningEffort } : {}),
     ...(config.apiProtocol === 'azure' && config.apiVersion?.trim()
       ? { apiVersion: config.apiVersion.trim() }
       : {}),
@@ -2205,6 +2210,7 @@ export function ProjectView({
   onAgentChange,
   onAgentModelChange,
   onApiModelChange,
+  onApiReasoningEffortChange,
   onRefreshAgents,
   onOpenSettings,
   onOpenAmrSettings,
@@ -14656,6 +14662,7 @@ export function ProjectView({
           });
           onApiModelChange?.(model);
         }}
+        onApiReasoningEffortChange={onApiReasoningEffortChange}
         onOpenSettings={onOpenSettings}
         onRefreshAgents={onRefreshAgents}
         openSignal={modelPickerOpenSignal}

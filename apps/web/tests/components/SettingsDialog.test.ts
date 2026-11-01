@@ -1718,4 +1718,37 @@ describe('resolveSettingsAutosavePayload', () => {
 
     expect(resolveSettingsAutosavePayload(local, activeDaemon)).toBe(local);
   });
+
+  it('persists per-model BYOK reasoning effort in both the shadow and active config', () => {
+    const seeded: AppConfig = {
+      ...baseConfig,
+      apiProtocol: 'openai',
+      baseUrl: 'https://opencode.ai/inference/go/openai/v1',
+      model: 'deepseek-v4.1-flash',
+      apiProviderBaseUrl: 'https://opencode.ai/inference/go/openai/v1',
+      byokReasoningEffortByModel: {},
+    };
+
+    const next = updateCurrentApiProtocolConfig(seeded, {
+      reasoningEffortByModel: { 'deepseek-v4.1-flash': 'high' },
+    });
+
+    expect(next.byokReasoningEffortByModel).toEqual({
+      'deepseek-v4.1-flash': 'high',
+    });
+    expect(
+      next.apiProtocolConfigs?.openai?.reasoningEffortByModel,
+    ).toEqual({ 'deepseek-v4.1-flash': 'high' });
+    // Switching away and back restores the saved effort map.
+    expect(
+      switchApiProtocolConfig(next, 'anthropic').byokReasoningEffortByModel,
+    ).toEqual({});
+    const back = switchApiProtocolConfig(
+      switchApiProtocolConfig(next, 'anthropic'),
+      'openai',
+    );
+    expect(back.byokReasoningEffortByModel).toEqual({
+      'deepseek-v4.1-flash': 'high',
+    });
+  });
 });

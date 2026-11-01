@@ -191,6 +191,28 @@ export const KNOWN_PROVIDERS: KnownProvider[] = [
     preferredModels: ['gpt-4o', 'gpt-4o-mini', 'o3', 'o4-mini'],
   },
   {
+    // OpenCode Go is OpenAI-compatible but not a plain OpenAI host: every model
+    // request needs a stable `x-opencode-session`, and its catalogue lives at
+    // `/inference/go/v1/models` (see the daemon's opencode-inference helper).
+    label: 'OpenCode Go',
+    protocol: 'openai',
+    baseUrl: 'https://opencode.ai/inference/go/openai/v1',
+    preferredModels: [
+      'deepseek-v4.1-flash',
+      'deepseek-v4-pro',
+      'glm-5.3',
+      'kimi-k2.7-code',
+      'minimax-m3',
+      'qwen3.8-max',
+      'gpt-6-luna',
+      'claude-haiku-5-5',
+    ],
+    apiKeyConsoleLink: {
+      host: 'opencode.ai',
+      url: 'https://opencode.ai/console',
+    },
+  },
+  {
     label: 'Atlas Cloud',
     protocol: 'openai',
     baseUrl: 'https://api.atlascloud.ai/v1',
@@ -526,6 +548,7 @@ export interface ByokProviderPresetConfig {
 const BYOK_PROVIDER_PRESET_SPECS = [
   { id: 'anthropic', title: 'Anthropic', providerLabel: 'Anthropic (Claude)' },
   { id: 'openai', title: 'OpenAI', providerLabel: 'OpenAI' },
+  { id: 'opencode-go', title: 'OpenCode Go', providerLabel: 'OpenCode Go' },
   { id: 'atlascloud', title: 'Atlas Cloud', providerLabel: 'Atlas Cloud' },
   { id: 'google-ai-studio', title: 'Google Gemini', providerLabel: 'Google Gemini' },
   { id: 'ollama', title: 'Ollama Cloud', providerLabel: 'Ollama Cloud (managed)' },

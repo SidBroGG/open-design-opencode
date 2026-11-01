@@ -115,6 +115,8 @@ interface Props {
   ) => void;
   onApiProtocolChange: (protocol: ApiProtocol) => void;
   onApiModelChange: (model: string) => void;
+  /** Per-model reasoning effort for BYOK providers that advertise one. */
+  onApiReasoningEffortChange?: (model: string, effort: string) => void;
   /** Lets the home picker warm the shared cache itself. Without it the picker
    *  only READS the cache (warmed by Settings/onboarding), so on a fresh load
    *  the BYOK list falls back to the small static seed list. */
@@ -186,6 +188,7 @@ export function InlineModelSwitcher({
   onAgentModelChange,
   onApiProtocolChange,
   onApiModelChange,
+  onApiReasoningEffortChange,
   onProviderModelsCacheChange,
   onOpenSettings,
 }: Props) {
@@ -1097,6 +1100,16 @@ export function InlineModelSwitcher({
     () => apiModelOptions.map((model) => ({ ...model, label: model.label })),
     [apiModelOptions],
   );
+  // Effort choices only exist for models whose live catalogue advertises them
+  // (OpenCode Go reports `low|high|max` etc.); other providers get no row.
+  const apiReasoningOptions = useMemo(
+    () =>
+      apiModelOptions.find((model) => model.id === config.model)
+        ?.reasoningOptions ?? [],
+    [apiModelOptions, config.model],
+  );
+  const apiReasoningEffort =
+    config.byokReasoningEffortByModel?.[config.model] ?? '';
 
   // Chip text — keep it tight so the pill doesn't wrap on small viewports.
   // CLI: "Claude · Sonnet 4.5"; BYOK: "Anthropic · sonnet-4.5".
@@ -1434,6 +1447,38 @@ export function InlineModelSwitcher({
                   </span>
                 )}
               </div>
+
+              {apiReasoningOptions.length > 0 && onApiReasoningEffortChange ? (
+                <div className="inline-switcher__row">
+                  <span className="inline-switcher__label">
+                    {t('settings.reasoningPicker')}
+                  </span>
+                  <SearchableModelSelect
+                    className="inline-switcher__select"
+                    popoverClassName="inline-model-popover"
+                    data-testid="inline-model-switcher-api-reasoning"
+                    searchInputTestId="inline-model-switcher-api-reasoning-search"
+                    popoverTestId="inline-model-switcher-api-reasoning-popover"
+                    searchPlaceholder={t('settings.reasoningPicker')}
+                    getPopoverBoundary={getModelPopoverBoundary}
+                    aria-label={t('settings.reasoningPicker')}
+                    models={apiReasoningOptions.map((option) => ({
+                      id: option.id,
+                      label:
+                        option.id === 'default'
+                          ? t('common.default')
+                          : option.label,
+                    }))}
+                    value={apiReasoningEffort || 'default'}
+                    onChange={(nextValue) =>
+                      onApiReasoningEffortChange(
+                        config.model,
+                        nextValue === 'default' ? '' : nextValue,
+                      )
+                    }
+                  />
+                </div>
+              ) : null}
 
               {!config.apiKey ? (
                 <div className="inline-switcher__warn" role="status">

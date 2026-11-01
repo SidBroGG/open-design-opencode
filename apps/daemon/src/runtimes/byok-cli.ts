@@ -6,6 +6,7 @@ export interface ByokCliOptions {
   apiVersion?: string;
   keyEnv?: string;
   keyless?: boolean;
+  reasoningEffort?: string;
 }
 
 export function byokProviderFromCliOptions(
@@ -39,11 +40,14 @@ export function byokProviderFromCliOptions(
     throw new Error('--byok-key-env must name a non-empty environment variable containing the API key');
   }
 
+  const reasoningEffort = options.reasoningEffort?.trim() ?? '';
+
   return {
     protocol,
     apiKey,
     ...(options.baseUrl !== undefined ? { baseUrl: options.baseUrl } : {}),
     ...(options.apiVersion !== undefined ? { apiVersion: options.apiVersion } : {}),
     ...(options.keyless ? { requiresApiKey: false } : {}),
+    ...(reasoningEffort ? { reasoningEffort } : {}),
   };
 }

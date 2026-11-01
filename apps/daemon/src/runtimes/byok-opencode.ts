@@ -1,4 +1,5 @@
 import type { ByokChatProviderConfig } from '@open-design/contracts';
+import { openCodeInferenceRequestHeaders } from '../integrations/opencode-inference.js';
 
 export const BYOK_OPENCODE_AGENT_ID = 'byok-opencode';
 export const BYOK_OPENCODE_PROVIDER_ID = 'open-design-byok';
@@ -32,6 +33,15 @@ export interface OpenCodeByokProviderConfig {
   config: Record<string, unknown>;
 }
 
+export interface OpenCodeByokBuildOptions {
+  /**
+   * Stable conversation/run seed for gateways that require a session header
+   * (OpenCode inference). Derived from the conversation id at run creation so
+   * every turn of the same conversation routes and caches together.
+   */
+  sessionSeed?: string | null;
+}
+
 export function opencodeByokModelId(model: string | null | undefined): string | null {
   const trimmed = typeof model === 'string' ? model.trim() : '';
   if (!trimmed || trimmed.toLowerCase() === 'default') return null;
@@ -42,6 +52,7 @@ export function opencodeByokModelId(model: string | null | undefined): string | 
 export function buildOpenCodeByokProviderConfig(
   provider: ByokChatProviderConfig | null | undefined,
   model: string | null | undefined,
+  options: OpenCodeByokBuildOptions = {},
 ): OpenCodeByokProviderConfig | null {
   if (!provider || typeof provider !== 'object') return null;
   const protocol = provider.protocol;
@@ -71,11 +82,20 @@ export function buildOpenCodeByokProviderConfig(
     provider.apiVersion,
     needsApiKey,
   );
+  const gatewayHeaders = openCodeInferenceRequestHeaders(baseUrl, {
+    seed: options.sessionSeed ?? null,
+  });
+  const providerOptions =
+    Object.keys(gatewayHeaders).length > 0
+      ? { ...providerEntry.options, headers: gatewayHeaders }
+      : providerEntry.options;
+  const reasoningEffort = normalizeReasoningEffort(provider.reasoningEffort);
   const config = {
     provider: {
       [BYOK_OPENCODE_PROVIDER_ID]: {
         name: 'OpenDesign BYOK',
         ...providerEntry,
+        options: providerOptions,
         models: {
           [rawModel]: {
             name: rawModel,
@@ -88,6 +108,18 @@ export function buildOpenCodeByokProviderConfig(
               context: DEFAULT_CONTEXT_TOKEN_LIMIT,
               output: DEFAULT_OUTPUT_TOKEN_LIMIT,
             },
+            // OpenCode applies per-model `options` as AI-SDK model settings,
+            // which is where `reasoningEffort` belongs (the OpenAI-compatible
+            // package turns it into the request's `reasoning_effort`). The
+            // capability flag tells OpenCode the model actually reasons, so it
+            // keeps reasoning fields/usage instead of treating the run as
+            // plain text.
+            ...(reasoningEffort
+              ? {
+                  capabilities: { reasoning: { supported: true } },
+                  options: { reasoningEffort },
+                }
+              : {}),
           },
         },
       },
@@ -100,6 +132,12 @@ export function buildOpenCodeByokProviderConfig(
     env: needsApiKey ? { [BYOK_OPENCODE_API_KEY_ENV]: apiKey } : {},
     config,
   };
+}
+
+function normalizeReasoningEffort(value: unknown): string | null {
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+  if (!trimmed || trimmed.toLowerCase() === 'default') return null;
+  return trimmed;
 }
 
 function normalizeProviderBaseUrl(

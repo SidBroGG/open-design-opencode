@@ -36,6 +36,7 @@ import { projectKindToTracking } from '@open-design/contracts/analytics';
 import { proxyDispatcherRequestInit, validateUserProviderBaseUrl } from '../connectionTest.js';
 import { isKnownReasoningEffort, resolveModelForServiceTier } from '../runtimes/models.js';
 import { googleStreamGenerateContentUrl } from '../integrations/google-models.js';
+import { openCodeInferenceRequestHeaders } from '../integrations/opencode-inference.js';
 import { createRoleMarkerGuard } from '../role-marker-guard.js';
 import { authorizeReasoningEgress, sendReasoningEgressDenial } from '../reasoning-egress.js';
 import type { AuthorizeProjectRequest } from '../collab/project-request-authority.js';
@@ -1023,7 +1024,11 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
 
     return runAnthropicChatStream(res, {
       url,
-      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        ...openCodeInferenceRequestHeaders(baseUrl),
+      },
       payload: buildAnthropicChatPayload(model, systemPrompt, messages, maxTokens),
       logTag: 'proxy:anthropic',
     });
@@ -1107,6 +1112,7 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
             'HTTP-Referer': 'https://opendesign.dev',
             'X-Title': 'OpenDesign',
           } : {}),
+          ...openCodeInferenceRequestHeaders(baseUrl),
         },
         redirect: 'error' as const,
       };
@@ -1385,7 +1391,10 @@ export function registerChatRoutes(app: Express, ctx: RegisterChatRoutesDeps) {
 
     return runGeminiChatStream(res, {
       url,
-      headers: { 'x-goog-api-key': apiKey },
+      headers: {
+        'x-goog-api-key': apiKey,
+        ...openCodeInferenceRequestHeaders(effectiveBaseUrl),
+      },
       payload: buildGeminiChatPayload(systemPrompt, messages, maxTokens),
       model,
       logTag: 'proxy:google',

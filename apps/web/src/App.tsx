@@ -3279,6 +3279,26 @@ function AppInner() {
     [],
   );
 
+  // Per-model BYOK reasoning effort. Stored as a map so switching models keeps
+  // each model's choice; the picker only ever offers what the live catalogue
+  // reported, so a value cannot outlive the model that advertised it.
+  const handleApiReasoningEffortChange = useCallback(
+    (model: string, effort: string) => {
+      const current = latestPersistedConfigRef.current;
+      const nextEfforts = { ...(current.byokReasoningEffortByModel ?? {}) };
+      if (effort) nextEfforts[model] = effort;
+      else delete nextEfforts[model];
+      const next = updateCurrentApiProtocolConfig(current, {
+        reasoningEffortByModel: nextEfforts,
+      });
+      latestPersistedConfigRef.current = next;
+      saveConfig(next);
+      void syncConfigToDaemon(next);
+      setConfig(next);
+    },
+    [],
+  );
+
   const handleChangeDefaultDesignSystem = useCallback(
     (designSystemId: string | null) => {
       const next = {
@@ -6062,6 +6082,7 @@ function AppInner() {
           onSwitchToCloud={handleSwitchToCloud}
           onAgentModelChange={handleAgentModelChange}
           onApiModelChange={handleApiModelChange}
+          onApiReasoningEffortChange={handleApiReasoningEffortChange}
           onRefreshAgents={refreshAgents}
           onOpenSettings={openSettings}
           onOpenAmrSettings={openAmrSettings}
@@ -6138,6 +6159,7 @@ function AppInner() {
         onAgentModelChange={handleAgentModelChange}
         onApiProtocolChange={handleApiProtocolChange}
         onApiModelChange={handleApiModelChange}
+        onApiReasoningEffortChange={handleApiReasoningEffortChange}
         onConfigPersist={handleConfigPersist}
         daemonAppConfigReady={daemonAppConfigReady}
         onSilentUpdatePreferenceChange={handleSilentUpdatePreferenceChange}

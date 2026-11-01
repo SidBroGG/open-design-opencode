@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execAgentFile } from './shared.js';
+import { modelCostFromInputPrice } from '../../integrations/model-pricing.js';
 import type { ModelCapability, ModelCost, ModelMetadata } from '@open-design/contracts';
 import type { RuntimeAgentDef, RuntimeModelOption } from '../types.js';
 
@@ -243,13 +244,6 @@ function withPriceDerivedCostMetadata(
     ...(metadata ?? {}),
     cost: modelCostFromInputPrice(inputPriceUsdPerMillion),
   };
-}
-
-function modelCostFromInputPrice(inputPriceUsdPerMillion: number): ModelCost {
-  if (inputPriceUsdPerMillion <= 0.5) return 'low';
-  if (inputPriceUsdPerMillion <= 1) return 'medium';
-  if (inputPriceUsdPerMillion <= 4) return 'high';
-  return 'very_high';
 }
 
 function parseModelCost(value: unknown): ModelCost | null {

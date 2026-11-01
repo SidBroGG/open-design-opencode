@@ -651,6 +651,61 @@ describe('AvatarMenu', () => {
     expect(screen.queryByRole('dialog', { name: 'avatar.title' })).toBeNull();
   });
 
+  it('offers the selected BYOK model reasoning effort from the live catalogue', () => {
+    const onApiReasoningEffortChange = vi.fn<(model: string, effort: string) => void>();
+    render(
+      <AvatarMenu
+        config={{
+          ...baseConfig,
+          mode: 'api',
+          apiProtocol: 'openai',
+          baseUrl: 'https://opencode.ai/inference/go/openai/v1',
+          apiProviderBaseUrl: 'https://opencode.ai/inference/go/openai/v1',
+          apiKey: 'oc_sk-test',
+          model: 'deepseek-v4.1-flash',
+          byokReasoningEffortByModel: { 'deepseek-v4.1-flash': 'high' },
+        }}
+        agents={[codexAgent, claudeAgent]}
+        daemonLive={true}
+        onModeChange={vi.fn()}
+        onAgentChange={vi.fn()}
+        onAgentModelChange={vi.fn()}
+        onApiModelChange={vi.fn()}
+        onApiReasoningEffortChange={onApiReasoningEffortChange}
+        providerModelsCache={{
+          [providerModelsCacheKey(
+            'openai',
+            'https://opencode.ai/inference/go/openai/v1',
+            'oc_sk-test',
+            '',
+          )]: [
+            {
+              id: 'deepseek-v4.1-flash',
+              label: 'DeepSeek V4.1 Flash',
+              reasoningOptions: [
+                { id: 'default', label: 'Default' },
+                { id: 'low', label: 'low' },
+                { id: 'high', label: 'high' },
+                { id: 'max', label: 'max' },
+              ],
+            },
+          ],
+        }}
+        onOpenSettings={vi.fn()}
+        onRefreshAgents={vi.fn()}
+      />,
+    );
+
+    const menu = openMenu();
+    const effort = within(menu).getByLabelText('settings.reasoningPicker');
+    expect((effort as HTMLSelectElement).value).toBe('high');
+    fireEvent.change(effort, { target: { value: 'max' } });
+    expect(onApiReasoningEffortChange).toHaveBeenCalledWith(
+      'deepseek-v4.1-flash',
+      'max',
+    );
+  });
+
   /*
    * The daemon's project scope route (`GET /api/projects/:id/workspace-scope`)
    * has exactly one branch, and it hardcodes `role: 'member'` for every caller —

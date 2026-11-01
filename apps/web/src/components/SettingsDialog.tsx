@@ -1008,6 +1008,10 @@ function nextApiProtocolConfig(
       apiKey: '',
       apiVersion: protocol === 'azure' ? currentConfig.apiVersion : '',
       apiProviderBaseUrl: null,
+      // Efforts are catalogue-specific; carrying them into a different
+      // protocol with the same custom endpoint could send a value the new
+      // model never advertised.
+      reasoningEffortByModel: {},
     };
   }
 
@@ -1027,6 +1031,7 @@ function currentApiProtocolConfig(config: AppConfig): ApiProtocolConfig {
     byokVideoModel: config.byokVideoModel ?? '',
     byokSpeechModel: config.byokSpeechModel ?? '',
     byokSpeechVoice: config.byokSpeechVoice ?? '',
+    reasoningEffortByModel: config.byokReasoningEffortByModel ?? {},
   };
 }
 
@@ -1178,6 +1183,10 @@ function applyApiProtocolConfig(
       protocol === 'aihubmix' ? (apiConfig.byokSpeechModel ?? '') : '',
     byokSpeechVoice:
       protocol === 'aihubmix' ? (apiConfig.byokSpeechVoice ?? '') : '',
+    // Per-model effort applies to every BYOK chat provider: a catalogue may
+    // advertise efforts for some models and none for others, and the picker
+    // only offers what the live model reports.
+    byokReasoningEffortByModel: apiConfig.reasoningEffortByModel ?? {},
   };
 }
 
@@ -2333,6 +2342,15 @@ export function SettingsDialog({
   };
   const updateApiConfig = (patch: Partial<ApiProtocolConfig>) =>
     setCfg((c) => updateCurrentApiProtocolConfig(c, patch));
+  const setApiReasoningEffort = (model: string, effort: string) =>
+    setCfg((c) => {
+      const next = { ...(c.byokReasoningEffortByModel ?? {}) };
+      if (effort) next[model] = effort;
+      else delete next[model];
+      return updateCurrentApiProtocolConfig(c, {
+        reasoningEffortByModel: next,
+      });
+    });
   const updateMaxTokensInput = (raw: string) => {
     setMaxTokensInput(raw);
     const trimmed = raw.trim();
@@ -3862,6 +3880,16 @@ export function SettingsDialog({
     () => apiModelOptions.map((m) => m.id),
     [apiModelOptions],
   );
+  // Reasoning efforts are model-specific and only known once the live
+  // catalogue answers; a model without `reasoningOptions` gets no picker.
+  const apiReasoningOptions = useMemo(
+    () =>
+      apiModelOptions.find((model) => model.id === cfg.model)?.reasoningOptions ??
+      [],
+    [apiModelOptions, cfg.model],
+  );
+  const apiReasoningEffort =
+    cfg.byokReasoningEffortByModel?.[cfg.model] ?? '';
   useEffect(() => {
     if (pendingProviderModelReconciliation === null) return;
     updateApiConfig({ model: pendingProviderModelReconciliation });
@@ -5777,6 +5805,31 @@ export function SettingsDialog({
                   updateApiConfig({ model: nextValue });
                 }}
               />
+              {apiReasoningOptions.length > 0 ? (
+                <label className="field">
+                  <span className="field-label">
+                    {t('settings.reasoningPicker')}
+                  </span>
+                  <select
+                    aria-label={t('settings.reasoningPicker')}
+                    value={apiReasoningEffort}
+                    onChange={(e) =>
+                      setApiReasoningEffort(cfg.model, e.target.value)
+                    }
+                  >
+                    {apiReasoningOptions.map((option) => (
+                      <option
+                        key={option.id}
+                        value={option.id === 'default' ? '' : option.id}
+                      >
+                        {option.id === 'default'
+                          ? t('common.default')
+                          : option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               <details className="agent-cli-env settings-memory-advanced">
                 <summary className="agent-cli-env-summary">
                   <span className="agent-cli-env-summary-title">

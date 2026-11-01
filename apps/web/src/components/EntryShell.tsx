@@ -531,6 +531,8 @@ interface Props {
   ) => void;
   onApiProtocolChange: (protocol: ApiProtocol) => void;
   onApiModelChange: (model: string) => void;
+  /** Per-model reasoning effort for BYOK providers that advertise one. */
+  onApiReasoningEffortChange?: (model: string, effort: string) => void;
   onConfigPersist: (cfg: AppConfig) => Promise<void> | void;
   /** True only when GET /api/app-config returned a real config object. */
   daemonAppConfigReady?: boolean;
@@ -672,6 +674,7 @@ export function EntryShell({
   onAgentModelChange,
   onApiProtocolChange,
   onApiModelChange,
+  onApiReasoningEffortChange,
   onConfigPersist,
   daemonAppConfigReady = false,
   onSilentUpdatePreferenceChange,
@@ -2115,6 +2118,7 @@ export function EntryShell({
       onAgentModelChange={onAgentModelChange}
       onApiProtocolChange={onApiProtocolChange}
       onApiModelChange={onApiModelChange}
+      onApiReasoningEffortChange={onApiReasoningEffortChange}
       onOpenSettings={onOpenSettings}
     />
   );

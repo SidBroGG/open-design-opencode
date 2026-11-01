@@ -65,6 +65,7 @@ import {
 } from './memory-extractions.js';
 import { resolveProviderConfig } from './media/config.js';
 import { AIHUBMIX_APP_CODE } from './integrations/aihubmix.js';
+import { openCodeInferenceRequestHeaders } from './integrations/opencode-inference.js';
 import { spawn } from 'node:child_process';
 import os from 'node:os';
 import { createHash } from 'node:crypto';
@@ -787,6 +788,7 @@ async function callAnthropic(provider, system, user) {
         'content-type': 'application/json',
         'x-api-key': provider.apiKey,
         'anthropic-version': '2023-06-01',
+        ...openCodeInferenceRequestHeaders(provider.baseUrl),
       },
       body: JSON.stringify({
         model: provider.model,
@@ -829,6 +831,8 @@ async function callOpenAI(provider, system, user) {
           ...(provider.kind === 'aihubmix' && AIHUBMIX_APP_CODE
             ? { 'APP-Code': AIHUBMIX_APP_CODE }
             : {}),
+          // OpenCode inference refuses model requests without a session id.
+          ...openCodeInferenceRequestHeaders(provider.baseUrl),
         },
         body: JSON.stringify({
           model: provider.model,

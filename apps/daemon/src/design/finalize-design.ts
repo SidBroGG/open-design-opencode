@@ -42,6 +42,7 @@ import {
 } from '../projects.js';
 import { exportProjectTranscript } from '../transcript-export.js';
 import { googleGenerateContentUrl } from '../integrations/google-models.js';
+import { openCodeInferenceRequestHeaders } from '../integrations/opencode-inference.js';
 
 // Re-export the request/response types so existing daemon-internal
 // imports (and the route handler) keep their referenced names. The
@@ -547,6 +548,7 @@ function buildFinalizeProviderRequest(params: FinalizeProviderCallParams): Final
         'content-type': 'application/json',
         'x-api-key': params.apiKey,
         'anthropic-version': '2023-06-01',
+        ...openCodeInferenceRequestHeaders(params.baseUrl),
       },
       body: {
         model: params.model,
@@ -564,6 +566,7 @@ function buildFinalizeProviderRequest(params: FinalizeProviderCallParams): Final
       headers: {
         'content-type': 'application/json',
         authorization: `Bearer ${params.apiKey}`,
+        ...openCodeInferenceRequestHeaders(params.baseUrl),
       },
       body: {
         model: params.model,
@@ -601,6 +604,7 @@ function buildFinalizeProviderRequest(params: FinalizeProviderCallParams): Final
       headers: {
         'content-type': 'application/json',
         'x-goog-api-key': params.apiKey,
+        ...openCodeInferenceRequestHeaders(params.baseUrl),
       },
       body: {
         contents: [

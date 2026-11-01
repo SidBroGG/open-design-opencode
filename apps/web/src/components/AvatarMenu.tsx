@@ -58,6 +58,8 @@ interface Props {
     choice: { model?: string; reasoning?: string; serviceTier?: string },
   ) => void;
   onApiModelChange?: (model: string) => void;
+  /** Per-model reasoning effort for BYOK providers that advertise one. */
+  onApiReasoningEffortChange?: (model: string, effort: string) => void;
   providerModelsCache?: Record<string, ProviderModelOption[]>;
   onOpenSettings: (section?: 'execution') => void;
   onRefreshAgents: () => void;
@@ -97,6 +99,7 @@ export function AvatarMenu({
   onAgentChange,
   onAgentModelChange,
   onApiModelChange,
+  onApiReasoningEffortChange,
   providerModelsCache,
   onOpenSettings,
   onBack,
@@ -514,6 +517,13 @@ export function AvatarMenu({
       ? byokProvider.preferredModels
       : SUGGESTED_MODELS_BY_PROTOCOL[apiProtocol] ?? [],
   );
+  // Effort is a property of the selected model's live catalogue entry, so a
+  // provider/model without reasoning controls renders no row.
+  const apiReasoningOptions =
+    byokModelOptions.find((model) => model.id === config.model)
+      ?.reasoningOptions ?? [];
+  const apiReasoningEffort =
+    config.byokReasoningEffortByModel?.[config.model] ?? '';
 
   // Selected-model readout shown inside the trigger (left of the Send button).
   // Hidden by default in CSS; composer-row contexts opt it in.
@@ -849,6 +859,36 @@ export function AvatarMenu({
                     })}
                   </div>
                 </div>
+                {apiReasoningOptions.length > 0 &&
+                onApiReasoningEffortChange ? (
+                  <label className="avatar-select-row">
+                    <span className="avatar-select-label">
+                      {t('settings.reasoningPicker')}
+                    </span>
+                    <select
+                      className="avatar-select"
+                      aria-label={t('settings.reasoningPicker')}
+                      value={apiReasoningEffort}
+                      onChange={(event) =>
+                        onApiReasoningEffortChange(
+                          config.model,
+                          event.target.value,
+                        )
+                      }
+                    >
+                      {apiReasoningOptions.map((option) => (
+                        <option
+                          key={option.id}
+                          value={option.id === 'default' ? '' : option.id}
+                        >
+                          {option.id === 'default'
+                            ? t('common.default')
+                            : option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
               </div>
             ) : apiModelLabel ? (
               // Never an empty shell: with no catalogue to offer (e.g. Azure

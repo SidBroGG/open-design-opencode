@@ -104,6 +104,13 @@ export interface ByokChatProviderConfig {
    * because some presets (e.g. Ollama) infer the model from baseUrl/protocol.
    */
   model?: string;
+  /**
+   * Reasoner effort/variant selected for this model, when its catalogue
+   * advertises one (e.g. OpenCode Go's `low|high|max`). Providers without a
+   * reasoning knob ignore it. The daemon applies it to the run-scoped
+   * provider config; it is never persisted next to the key.
+   */
+  reasoningEffort?: string;
 }
 
 export interface ByokMediaDefaults {

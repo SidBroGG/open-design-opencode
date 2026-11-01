@@ -252,6 +252,10 @@ export interface ApiProtocolConfig {
   model: string;
   apiVersion?: string;
   apiProviderBaseUrl?: string | null;
+  /** BYOK only — per-model reasoning effort, keyed by model id. Providers
+   *  whose live catalogue advertises efforts (e.g. OpenCode Go) let the user
+   *  pin one per model; absent entries mean "provider default". */
+  reasoningEffortByModel?: Record<string, string>;
   /** SenseAudio BYOK only — default image model the daemon-side
    *  `generate_image` tool uses when the LLM doesn't pass one. Carries
    *  one of the SenseAudio image model ids (`senseaudio-image-2.0-260319`,
@@ -403,6 +407,9 @@ export interface AppConfig {
   byokSpeechModel?: string;
   byokSpeechVoice?: string;
   apiProtocolConfigs?: Partial<Record<ApiProtocol, ApiProtocolConfig>>;
+  /** BYOK only — reasoning effort for the ACTIVE protocol, keyed by model id
+   *  (projection of `apiProtocolConfigs[protocol].reasoningEffortByModel`). */
+  byokReasoningEffortByModel?: Record<string, string>;
   /** BYOK provider drafts keyed by protocol + selected provider base URL. */
   byokProviderConfigDrafts?: Record<string, ByokProviderConfigDraft>;
   /** Provider draft restored first when Settings returns to BYOK. */

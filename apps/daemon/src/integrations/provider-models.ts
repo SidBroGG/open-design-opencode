@@ -12,6 +12,11 @@ import { isLoopbackApiHost } from '@open-design/contracts/api/connectionTest';
 import { redactSecrets, validateUserProviderBaseUrl } from '../connectionTest.js';
 import { googleProviderModelsUrl, normalizeGoogleModelId } from './google-models.js';
 import { aihubmixHeaders, aihubmixCatalogUrl, parseAIHubMixCatalog } from './aihubmix.js';
+import {
+  openCodeInferenceCatalogUrl,
+  openCodeInferenceRequestHeaders,
+  parseOpenCodeInferenceCatalog,
+} from './opencode-inference.js';
 
 type ProviderModelsInput = ProviderModelsRequest & {
   signal?: AbortSignal;
@@ -236,6 +241,12 @@ function extractGoogleModels(data: unknown): ProviderModelOption[] {
 }
 
 function providerModelsUrl(protocol: ConnectionTestProtocol, baseUrl: string, apiKey: string): string {
+  // OpenCode inference serves its catalogue outside the per-API chat prefix
+  // (`/inference/go/openai/v1/models` is a 404). Resolve it before the
+  // protocol branches so Go URLs work whether the user picked OpenAI,
+  // Anthropic or Google.
+  const openCodeCatalogUrl = openCodeInferenceCatalogUrl(baseUrl);
+  if (openCodeCatalogUrl) return openCodeCatalogUrl;
   if (protocol === 'aihubmix') {
     // AIHubMix exposes its chat catalogue on a dedicated endpoint
     // (GET /api/v1/models?type=llm), not the OpenAI /v1/models route.
@@ -258,9 +269,13 @@ function providerModelsUrl(protocol: ConnectionTestProtocol, baseUrl: string, ap
 function providerModelsHeaders(
   protocol: ConnectionTestProtocol,
   apiKey: string,
+  baseUrl: string,
 ): Record<string, string> {
   if (protocol === 'openai' || protocol === 'senseaudio') {
-    return { authorization: `Bearer ${apiKey}` };
+    return {
+      authorization: `Bearer ${apiKey}`,
+      ...openCodeInferenceRequestHeaders(baseUrl),
+    };
   }
   if (protocol === 'aihubmix') {
     // The catalogue is public — only attach Bearer auth (+ APP-Code) when the
@@ -272,12 +287,25 @@ function providerModelsHeaders(
     return {
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
+      ...openCodeInferenceRequestHeaders(baseUrl),
     };
+  }
+  if (protocol === 'google') {
+    return openCodeInferenceRequestHeaders(baseUrl);
   }
   return {};
 }
 
-function extractModels(protocol: ConnectionTestProtocol, data: unknown): ProviderModelOption[] {
+function extractModels(
+  protocol: ConnectionTestProtocol,
+  data: unknown,
+  baseUrl: string,
+): ProviderModelOption[] {
+  // The OpenCode catalogue is one payload for every API family, with richer
+  // metadata (reasoning levels, limits, prices) than the OpenAI envelope.
+  if (openCodeInferenceCatalogUrl(baseUrl)) {
+    return parseOpenCodeInferenceCatalog(data);
+  }
   // SenseAudio's /v1/models response follows the OpenAI envelope
   // (`{ data: [{ id, ... }] }`), so the same extractor handles both.
   // Chat picker: drop media-generation rows. AIHubMix's `?type=llm` matches any
@@ -347,7 +375,7 @@ export async function listProviderModels(
   try {
     const response = await fetch(url, {
       method: 'GET',
-      headers: providerModelsHeaders(input.protocol, input.apiKey),
+      headers: providerModelsHeaders(input.protocol, input.apiKey, input.baseUrl),
       ...input.requestInit,
       signal: controller.signal,
       redirect: 'error',
@@ -385,7 +413,7 @@ export async function listProviderModels(
       };
     }
 
-    const models = extractModels(input.protocol, data);
+    const models = extractModels(input.protocol, data, input.baseUrl);
     console.log(
       `[provider:models] ${input.protocol} ${validated.parsed.hostname} → ${models.length} models in ${latencyMs}ms`,
     );

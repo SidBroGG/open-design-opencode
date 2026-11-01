@@ -82,6 +82,7 @@ import {
   type ProviderTestRequest,
 } from '@open-design/contracts/api/connectionTest';
 import { googleGenerateContentUrl } from './integrations/google-models.js';
+import { openCodeInferenceRequestHeaders } from './integrations/opencode-inference.js';
 import { readVelaCredentialRevision, resolveAmrProfile } from './integrations/vela.js';
 import { amrModelLoadingCache } from './runtimes/amr-model-cache.js';
 import { buildAmrModelCacheKey } from './runtimes/amr-model-probe.js';
@@ -1355,6 +1356,7 @@ function openAIChatCompletionsProviderCall(
         'HTTP-Referer': 'https://opendesign.dev',
         'X-Title': 'OpenDesign',
       } : {}),
+      ...openCodeInferenceRequestHeaders(baseUrl),
     },
     body: {
       model,
@@ -1384,6 +1386,7 @@ function openAIResponsesProviderCall(
     headers: {
       'content-type': 'application/json',
       authorization: `Bearer ${apiKey}`,
+      ...openCodeInferenceRequestHeaders(baseUrl),
     },
     body: {
       model,
@@ -1406,6 +1409,7 @@ function buildProviderCall(input: ProviderTestRequest): ProviderCallShape {
           'content-type': 'application/json',
           'x-api-key': apiKey,
           'anthropic-version': '2023-06-01',
+          ...openCodeInferenceRequestHeaders(baseUrl),
         },
         body: {
           model,
@@ -1511,6 +1515,7 @@ function buildProviderCall(input: ProviderTestRequest): ProviderCallShape {
         headers: {
           'content-type': 'application/json',
           'x-goog-api-key': apiKey,
+          ...openCodeInferenceRequestHeaders(effectiveBaseUrl),
         },
         body: {
           contents: [

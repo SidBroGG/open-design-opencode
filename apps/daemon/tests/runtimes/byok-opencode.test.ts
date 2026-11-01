@@ -457,4 +457,70 @@ describe('byok-opencode runtime config', () => {
       ?.[BYOK_OPENCODE_PROVIDER_ID];
     expect(provider?.options).not.toHaveProperty('apiKey');
   });
+
+  it('adds the OpenCode session header and per-model effort for the Go gateway', () => {
+    const out = buildOpenCodeByokProviderConfig(
+      {
+        protocol: 'openai',
+        apiKey: 'oc_sk_test',
+        baseUrl: 'https://opencode.ai/inference/go/openai/v1',
+        reasoningEffort: 'high',
+      },
+      'deepseek-v4.1-flash',
+      { sessionSeed: 'conversation-42' },
+    );
+
+    expect(out?.config).toMatchObject({
+      provider: {
+        [BYOK_OPENCODE_PROVIDER_ID]: {
+          npm: '@ai-sdk/openai-compatible',
+          options: {
+            baseURL: 'https://opencode.ai/inference/go/openai/v1',
+            apiKey: `{env:${BYOK_OPENCODE_API_KEY_ENV}}`,
+            headers: {
+              'x-opencode-session': expect.stringMatching(/^ses_[0-9a-f]{24}$/),
+              'user-agent': 'OpenDesign/1.0',
+            },
+          },
+          models: {
+            'deepseek-v4.1-flash': {
+              options: { reasoningEffort: 'high' },
+            },
+          },
+        },
+      },
+    });
+    // The same conversation keeps one routing session across turns.
+    const again = buildOpenCodeByokProviderConfig(
+      {
+        protocol: 'openai',
+        apiKey: 'oc_sk_test',
+        baseUrl: 'https://opencode.ai/inference/go/openai/v1',
+        reasoningEffort: 'high',
+      },
+      'deepseek-v4.1-flash',
+      { sessionSeed: 'conversation-42' },
+    );
+    expect(JSON.stringify(again?.config)).toContain(
+      (out?.config as any).provider[BYOK_OPENCODE_PROVIDER_ID].options.headers[
+        'x-opencode-session'
+      ],
+    );
+  });
+
+  it('keeps gateway headers out of non-OpenCode providers', () => {
+    const out = buildOpenCodeByokProviderConfig(
+      {
+        protocol: 'openai',
+        apiKey: 'sk-deepseek',
+        baseUrl: 'https://api.deepseek.com',
+        reasoningEffort: 'high',
+      },
+      'deepseek-v4-pro',
+      { sessionSeed: 'conversation-42' },
+    );
+    const provider = (out?.config.provider as Record<string, { options?: Record<string, unknown> }> | undefined)
+      ?.[BYOK_OPENCODE_PROVIDER_ID];
+    expect(provider?.options).not.toHaveProperty('headers');
+  });
 });

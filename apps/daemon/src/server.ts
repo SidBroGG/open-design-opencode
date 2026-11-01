@@ -11777,6 +11777,16 @@ export async function startServer({
       ? buildOpenCodeByokProviderConfig(
           byokProvider,
           typeof model === 'string' ? model : null,
+          {
+            // OpenCode inference wants one stable `x-opencode-session` per
+            // conversation, so derive it from the conversation (falling back
+            // to the project, then the run) instead of minting a new id per
+            // turn.
+            sessionSeed:
+              (typeof conversationId === 'string' && conversationId) ||
+              (typeof projectId === 'string' && projectId) ||
+              run.id,
+          },
         )
       : null;
     if (def.id === 'byok-opencode' && !byokOpenCodeProvider) {

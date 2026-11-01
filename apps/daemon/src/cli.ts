@@ -273,6 +273,7 @@ const PROJECT_BOOLEAN_FLAGS = new Set(['help', 'h', 'json', 'follow', 'thumbnail
 const RUN_START_STRING_FLAGS = new Set([
   ...PROJECT_RESOURCE_STRING_FLAGS,
   'byok-protocol', 'byok-base-url', 'byok-api-version', 'byok-key-env',
+  'byok-reasoning-effort',
 ]);
 const RUN_START_BOOLEAN_FLAGS = new Set([...PROJECT_BOOLEAN_FLAGS, 'byok-keyless']);
 const WORKSPACE_STRING_FLAGS = new Set([
@@ -8579,6 +8580,7 @@ async function runRun(args) {
                [--agent <id>] [--model <id>] [--service-tier <id>]
                [--byok-protocol <protocol>] [--byok-base-url <url>]
                [--byok-api-version <version>] [--byok-key-env <env>] [--byok-keyless]
+               [--byok-reasoning-effort <effort>]
                [--workspace <id> --workspace-member <id>] [--follow] [--json]
   od run redesign [--path <folder>] [--message "<text>" | --prompt-file <path|->]
                [--agent claude] [--model <id>] [--service-tier <id>] [--follow] [--json]
@@ -8612,6 +8614,10 @@ BYOK start options:
   --byok-key-env <env>        Read the API key from this environment variable.
   --byok-keyless             Explicitly use a provider without an API key.
                               Use --model <id> to select the BYOK model.
+  --byok-reasoning-effort <effort>
+                              Reasoning effort/variant for the selected model
+                              (e.g. low|high|max on OpenCode Go). Omit to keep
+                              the provider default.
 
 Common options:
   --daemon-url <url>         OpenDesign daemon HTTP base.
@@ -8877,6 +8883,7 @@ Common options:
           apiVersion: flags['byok-api-version'],
           keyEnv: flags['byok-key-env'],
           keyless: flags['byok-keyless'] === true,
+          reasoningEffort: flags['byok-reasoning-effort'],
         }, process.env);
       } catch (err) {
         console.error(err.message);
