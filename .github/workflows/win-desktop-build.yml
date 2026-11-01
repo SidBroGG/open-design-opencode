@@ -1,0 +1,147 @@
+name: win-desktop-build
+
+# Fork-friendly Windows desktop build.
+#
+# This is NOT a release workflow: it never touches R2, release metadata, or the
+# stable/beta channels. It builds an unsigned Windows NSIS installer with the
+# normal `tools-pack win build` path (the only path that can produce the custom
+# installer, since payload/installer building is Windows-only), uploads it as a
+# workflow artifact, and best-effort publishes it under a per-run prerelease tag
+# so it can be downloaded without Actions access.
+on:
+  workflow_dispatch:
+    inputs:
+      app_version:
+        description: "Optional packaged version override. Empty uses apps/packaged/package.json."
+        required: false
+        type: string
+        default: ""
+  push:
+    branches:
+      - build/win-desktop
+
+permissions:
+  contents: write
+
+concurrency:
+  group: win-desktop-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    outputs:
+      version: ${{ steps.build.outputs.version }}
+      installer: ${{ steps.build.outputs.installer }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: 10.33.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup NSIS
+        shell: pwsh
+        run: |
+          function Test-Makensis {
+            [bool]((Get-Command makensis.exe -ErrorAction SilentlyContinue) -or (Test-Path "C:\Program Files (x86)\NSIS\makensis.exe"))
+          }
+          if (Test-Makensis) { Write-Host "makensis already present"; exit 0 }
+          foreach ($attempt in 1..4) {
+            Write-Host "choco install nsis (attempt $attempt)"
+            choco install nsis -y --no-progress
+            if (Test-Makensis) { break }
+            Start-Sleep -Seconds (15 * $attempt)
+          }
+          if (-not (Test-Makensis)) {
+            Write-Error "NSIS install failed after 4 attempts"
+            exit 1
+          }
+
+      - name: Build Windows installer
+        id: build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = "${{ inputs.app_version }}".Trim()
+          if (-not $version) {
+            $version = (Get-Content apps/packaged/package.json -Raw | ConvertFrom-Json).version
+          }
+          $toolsPackDir = Join-Path $env:RUNNER_TEMP "tools-pack"
+          $cacheDir = Join-Path $env:RUNNER_TEMP "tools-pack-cache"
+          $buildJsonPath = Join-Path $env:RUNNER_TEMP "win-build.json"
+          pnpm.cmd exec tools-pack win cleanup --dir $toolsPackDir --namespace winbuild --json
+          $buildArgs = @(
+            "exec", "tools-pack", "win", "build",
+            "--dir", $toolsPackDir,
+            "--cache-dir", $cacheDir,
+            "--namespace", "winbuild",
+            "--portable",
+            "--app-version", $version,
+            "--to", "nsis",
+            "--json"
+          )
+          $buildOutput = pnpm.cmd @buildArgs
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows tools-pack build exited with code $LASTEXITCODE"
+          }
+          $buildOutput | Set-Content -Path $buildJsonPath -Encoding utf8
+          $build = $buildOutput | ConvertFrom-Json
+          if (-not $build.installerPath) {
+            throw "tools-pack did not report an installerPath"
+          }
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "installer=$($build.installerPath)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "latestYml=$($build.latestYmlPath)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "blockmap=$($build.blockmapPath)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "buildJson=$buildJsonPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "installer: $($build.installerPath)"
+          Get-Item $build.installerPath | Format-List Name, Length, LastWriteTime
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-design-win-x64-${{ steps.build.outputs.version }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            ${{ steps.build.outputs.installer }}
+            ${{ steps.build.outputs.latestYml }}
+            ${{ steps.build.outputs.blockmap }}
+            ${{ steps.build.outputs.buildJson }}
+
+      # Best effort: a prerelease keeps the binary downloadable from a public
+      # URL even when the workflow token cannot expose Actions artifacts.
+      - name: Publish downloadable prerelease
+        continue-on-error: true
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tag = "win-desktop-${{ github.run_number }}"
+          $installer = "${{ steps.build.outputs.installer }}"
+          $latestYml = "${{ steps.build.outputs.latestYml }}"
+          $blockmap = "${{ steps.build.outputs.blockmap }}"
+          $files = @($installer)
+          if ($latestYml -and (Test-Path $latestYml)) { $files += $latestYml }
+          if ($blockmap -and (Test-Path $blockmap)) { $files += $blockmap }
+          gh release create $tag @files `
+            --title "Windows desktop build ${{ github.run_number }}" `
+            --notes "Unsigned Windows x64 installer built from ${{ github.sha }} (OpenDesign ${{ steps.build.outputs.version }})." `
+            --prerelease
